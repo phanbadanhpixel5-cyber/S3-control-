@@ -1,0 +1,6 @@
+{
+  "name": "SinricPro IoT Dashboard",
+  "description": "A technical dashboard for monitoring and controlling SinricPro smart switches and relays.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["IoT Control", "Real-time Monitoring"]
+}
