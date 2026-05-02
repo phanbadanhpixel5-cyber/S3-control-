@@ -1,0 +1,8 @@
+{
+	"appId": "com.esp32smart.home",
+	"appName": "ESP32 Smart Home",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	}
+}
