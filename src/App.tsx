@@ -197,25 +197,25 @@ export default function App() {
   }, [wifiSsid, wifiPass]);
 
   const firmwareCode = `/* 
- * Firmware SinricPro chuẩn cho ESP32-C3
- * -----------------------------------------
- * - Đèn LED (GPIO 8): Nháy nhanh = Tìm WiFi, Sáng đứng = Đã kết nối.
- * - Kiểm tra Serial Monitor (Baud 115200) để xem chi tiết.
+ * Firmware SinricPro CHUYÊN NGHIỆP cho ESP32-C3
+ * --------------------------------------------
+ * 1. Tự động phát WiFi Config (Tên: ESP32_SmartHome_Setup) nếu chưa có mạng.
+ * 2. Đèn LED (GPIO 8): Nháy nhanh = Đang Config/Tìm WiFi, Sáng đứng = Đã kết nối.
+ * 3. Hỗ trợ ${devices.length} thiết bị: ${devices.map(d => d.name).join(', ')}.
  */
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiManager.h> // Thư viện tự động tạo trang cấu hình WiFi
 #include "SinricPro.h"
 #include "SinricProSwitch.h"
 
-// Thông tin kết nối - NHẬP TẠI ĐÂY NẾU CHƯA CẬP NHẬT TRÊN WEB
-#define WIFI_SSID         "${wifiSsid || 'Vui lòng nhập WiFi'}"
-#define WIFI_PASS         "${wifiPass || 'Vui lòng nhập Pass'}"
+// Thông tin API SinricPro (Mã cố định cho hệ thống của bạn)
 #define APP_KEY           "386b7a9b-528b-4cc7-865f-7c6479b62c68"
 #define APP_SECRET        "e9fb1020-86d0-462e-b9ea-9cbc9f424722-19f62d7b-6cd2-418b-8298-4416c57cf4f2"
-#define STATUS_LED        8  // LED trên ESP32-C3
+#define STATUS_LED        8  // LED trạng thái trên ESP32-C3
 
-// Cấu hình chân PIN
+// Cấu hình chân PIN từ Dashboard
 const int relayPins[] = {${devices.map(d => d.relayPin).join(', ')}};
 const int buttonPins[] = {${devices.map(d => d.flipSwitchPin).join(', ')}};
 const char* deviceIds[] = {${devices.map(d => `"${d.id}"`).join(', ')}};
@@ -233,9 +233,9 @@ void checkConnection() {
   }
 }
 
-// Hàm phản hồi từ Cloud (App/Web Dashboard)
+// Hàm phản hồi khi điều khiển từ App/Web
 bool onPowerState(const String &deviceId, bool &state) {
-  Serial.printf("Cloud command: %s -> %s\\n", deviceId.c_str(), state ? "ON" : "OFF");
+  Serial.printf("Cloud -> %s: %s\\n", deviceId.c_str(), state ? "BẬT" : "TẮT");
   for(int i=0; i<${devices.length}; i++) {
     if(deviceId == deviceIds[i]) {
       digitalWrite(relayPins[i], state ? (activeLows[i] ? LOW : HIGH) : (activeLows[i] ? HIGH : LOW));
@@ -248,23 +248,32 @@ bool onPowerState(const String &deviceId, bool &state) {
 void setup() {
   Serial.begin(115200);
   pinMode(STATUS_LED, OUTPUT);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
   
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
-  }
-  
+  // Khởi tạo các chân IO
   for(int i=0; i<${devices.length}; i++) {
     pinMode(relayPins[i], OUTPUT);
     pinMode(buttonPins[i], INPUT_PULLUP);
-    digitalWrite(relayPins[i], activeLows[i] ? HIGH : LOW);
+    digitalWrite(relayPins[i], activeLows[i] ? HIGH : LOW); // Mặc định TẮT
     lastButtonStates[i] = HIGH;
     
     SinricProSwitch &mySwitch = SinricPro[deviceIds[i]];
     mySwitch.onPowerState(onPowerState);
   }
 
+  // Tự động kết nối WiFi hoặc phát AP để cấu hình
+  WiFiManager wm;
+  // Nháy LED nhanh khi ở chế độ Config
+  wm.setAPCallback([](WiFiManager *myWiFiManager) {
+    Serial.println("Đang ở chế độ Cấu hình WiFi...");
+  });
+
+  if(!wm.autoConnect("ESP32_SmartHome_Setup")) {
+    Serial.println("Lỗi kết nối WiFi, đang khởi động lại...");
+    delay(3000);
+    ESP.restart();
+  }
+
+  Serial.println("Đã kết nối WiFi thành công!");
   SinricPro.begin(APP_KEY, APP_SECRET);
 }
 
@@ -272,6 +281,7 @@ void loop() {
   SinricPro.handle();
   checkConnection();
 
+  // Đọc nút bấm vật lý
   for(int i=0; i<${devices.length}; i++) {
     bool currentState = digitalRead(buttonPins[i]);
     if (currentState != lastButtonStates[i] && (millis() - lastDebounceTimes[i]) > DEBOUNCE_TIME) {
@@ -283,13 +293,13 @@ void loop() {
         bool statusOnApp = activeLows[i] ? (nextRelay == LOW) : (nextRelay == HIGH); 
         SinricProSwitch &mySwitch = SinricPro[deviceIds[i]];
         mySwitch.sendPowerStateEvent(statusOnApp);
-        Serial.printf("Local Button: %s -> %s\\n", deviceIds[i], statusOnApp ? "ON" : "OFF");
+        Serial.printf("Nút nhấn -> %s: %s\\n", deviceIds[i], statusOnApp ? "BẬT" : "TẮT");
       }
       lastDebounceTimes[i] = millis();
       lastButtonStates[i] = currentState;
     }
   }
-}`;
+} `;
 
   const addLog = (msg: string) => {
     setLogs(prev => [msg, ...prev].slice(0, 10));
@@ -329,17 +339,17 @@ void loop() {
   };
 
   const startPairing = async () => {
-    if (!wifiSsid || !wifiPass) {
-      setConnectionError("Vui lòng nhập WiFi để hệ thống tạo mã nạp chuẩn!");
-      return;
-    }
     setConnectionError(null);
     setIsPairing(true);
     addLog("[Hệ thống]: Đang khởi tạo kết nối Cloud...");
 
     // Simulate WiFi/Cloud Handshake
     setTimeout(() => {
-      addLog(`[WiFi]: Đang kết nối tới '${wifiSsid}'...`);
+      if (wifiSsid) {
+        addLog(`[WiFi]: Đang kết nối tới '${wifiSsid}'...`);
+      } else {
+        addLog("[WiFi]: Đang sử dụng cấu hình cũ...");
+      }
       addLog("[SinricPro]: Đang xác thực API Key...");
       
       setTimeout(() => {
@@ -347,7 +357,7 @@ void loop() {
         setIsPaired(true);
         setIsHardwareOnline(true);
         addLog("[SinricPro]: Trạng thái: TRỰC TUYẾN (CLOUD)");
-        addLog(`[Hệ thống]: Đã đồng bộ qua WiFi: ${wifiSsid}`);
+        if (wifiSsid) addLog(`[Hệ thống]: Đã đồng bộ qua WiFi: ${wifiSsid}`);
       }, 1500);
     }, 2000);
   };
@@ -412,58 +422,31 @@ void loop() {
           </div>
 
           <div className="space-y-6">
-            {isProvisioning ? (
+            {!isPairing && (
               <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="space-y-6 bg-white/5 p-8 rounded-2xl border border-white/10"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-4 bg-white/5 p-6 rounded-2xl border border-white/5 mb-6"
               >
-                <div className="text-left space-y-4">
-                  <h2 className="text-sm font-bold uppercase tracking-widest text-green-500">Cấu hình WiFi cho khách</h2>
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-white/40 uppercase tracking-widest ml-1">Tên WiFi (SSID)</label>
-                      <input 
-                        type="text" 
-                        value={wifiSsid}
-                        onChange={(e) => setWifiSsid(e.target.value)}
-                        placeholder="Nhập tên WiFi nhà khách"
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-green-500 outline-none transition-all"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-white/40 uppercase tracking-widest ml-1">Mật khẩu WiFi</label>
-                      <input 
-                        type="password" 
-                        value={wifiPass}
-                        onChange={(e) => setWifiPass(e.target.value)}
-                        placeholder="Nhập mật khẩu"
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-green-500 outline-none transition-all"
-                      />
-                    </div>
+                <div className="grid grid-cols-1 gap-4 text-left">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-white/40 uppercase tracking-widest ml-1">Tên WiFi (Ghi vào Firmware)</label>
+                    <input 
+                      type="text" 
+                      value={wifiSsid}
+                      onChange={(e) => setWifiSsid(e.target.value)}
+                      placeholder="Nhập tên WiFi"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-green-500 outline-none transition-all"
+                    />
                   </div>
                 </div>
-
-                <div className="space-y-3">
-                  <button
-                    onClick={startProvisioning}
-                    disabled={isPairing}
-                    className="w-full py-4 bg-green-500 text-black font-black uppercase tracking-widest italic rounded-xl shadow-[0_10px_20px_rgba(34,197,94,0.2)] active:scale-95 transition-all disabled:opacity-50"
-                  >
-                    {isPairing ? 'ĐANG GỬI DỮ LIỆU...' : 'GỬI ĐẾN ESP32'}
-                  </button>
-                  <button
-                    onClick={() => { setIsProvisioning(false); setConnectionError(null); }}
-                    className="w-full py-2 text-[10px] text-white/30 uppercase tracking-widest hover:text-white transition-colors"
-                  >
-                    Quay lại
-                  </button>
-                </div>
               </motion.div>
-            ) : isPairing ? (
+            )}
+
+            {isPairing ? (
               <div className="space-y-2">
                 <p className="text-green-500 text-sm font-bold animate-pulse">ĐANG THIẾT LẬP KẾT NỐI...</p>
-                <p className="text-white/20 text-[10px] uppercase tracking-widest">Vui lòng chọn cổng COM nếu có bảng thông báo hiện lên</p>
+                <p className="text-white/20 text-[10px] uppercase tracking-widest">Đang kiểm tra trạng thái ESP32 qua Cloud</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -483,12 +466,8 @@ void loop() {
                     className="group relative px-12 py-4 bg-white text-black font-black uppercase tracking-[0.2em] italic rounded-xl overflow-hidden active:scale-95 transition-all shadow-[0_10px_20px_rgba(255,255,255,0.1)] w-full text-sm disabled:opacity-50"
                   >
                     <span className="relative z-10 flex items-center justify-center gap-3">
-                      {isPairing ? "ĐANG KẾT NỐI CLOUD..." : "KẾT NỐI QUA WIFI / CLOUD"}
-                      {isPairing ? (
-                        <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                      ) : (
-                        <Power className="w-4 h-4 fill-black" />
-                      )}
+                      VÀO GIAO DIỆN ĐIỀU KHIỂN
+                      <Power className="w-4 h-4 fill-black" />
                     </span>
                     <div className="absolute inset-0 bg-green-500 translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
                   </button>

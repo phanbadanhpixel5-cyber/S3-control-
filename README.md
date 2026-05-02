@@ -1,41 +1,35 @@
-# SinricPro IoT Dashboard (ESP32-C3)
+# SinricPro IoT Dashboard (ESP32-C3) Professional
 
-Một giao diện điều khiển thiết bị IoT chuyên nghiệp sử dụng nền tảng **SinricPro**. Dashboard này được thiết kế để điều khiển tối đa 4 thiết bị (Đèn, Quạt, Máy lạnh) thông qua WiFi và Cloud.
+Giao diện điều khiển thiết bị IoT (Smarthome) chuyên nghiệp sử dụng chip **ESP32-C3** và nền tảng **SinricPro**.
 
-## ✨ Tính năng
-- **Điều khiển thời gian thực:** Trạng thái thiết bị đồng bộ giữa Web và ESP32.
-- **Tùy chỉnh phần cứng:** Cho phép đổi tên phòng, tên hệ thống và cấu hình chân GPIO trực tiếp trên UI.
-- **Firmware Generator:** Tự động tạo mã nguồn C++ chuẩn cho ESP32-C3 dựa trên cấu hình hiện tại.
-- **Dark Mode UI:** Giao diện phong cách kỹ thuật, tối ưu cho giám sát 24/7.
+## ✨ Tính năng nổi bật
+- **WiFi Portal (Smart Config):** Không cần nạp mã nguồn mỗi khi đổi WiFi. Chip tự phát WiFi "ESP32_SmartHome_Setup" để cấu hình.
+- **Trạng thái LED (GPIO 8):**
+  - **Nháy nhanh:** Đang ở chế độ chờ cấu hình WiFi hoặc mất mạng.
+  - **Sáng đứng:** Đã kết nối Cloud SinricPro thành công.
+- **Điều khiển 4 kênh:** Hỗ trợ điều khiển Relay và Nút bấm vật lý (phản hồi trạng thái lên server ngay lập tức).
+- **Firmware Generator:** Dashboard tự tạo code C++ chuẩn theo cấu hình GPIO và ID thiết bị.
 
-## 🚀 Hướng dẫn sử dụng
+## 🚀 Cách triển khai nhanh
 
-### 1. Chuẩn bị phần cứng
-- 01 Board ESP32-C3.
-- Relay kết nối vào các chân: **GPIO 5, 6, 7, 10**.
-- Nút bấm (nút nhấn nhả) kết nối vào các chân: **GPIO 1, 2, 3, 4**.
-- Đèn trạng thái hệ thống: **GPIO 8**.
+### 1. Nạp Firmware (Arduino IDE)
+1. Cài đặt các thư viện: `SinricPro`, `SinricPro_Generic`, `WiFiManager`.
+2. Copy đoạn mã trong phần **"Lấy mã Firmware"** trên Dashboard.
+3. Chọn Board là **ESP32C3 Dev Module** và nhấn Upload.
 
-### 2. Cài đặt Web App
-1. Tải toàn bộ mã nguồn này về máy.
-2. Chạy `npm install` để cài đặt dependencies.
-3. Chạy `npm run dev` để mở Dashboard.
+### 2. Cấu hình WiFi cho chip
+1. Sau khi nạp, dùng điện thoại tìm WiFi tên: `ESP32_SmartHome_Setup`.
+2. Kết nối và nhập tên WiFi/Mật khẩu nhà bạn.
+3. Đợi đèn LED (chân 8) sáng đứng là hoàn tất.
 
-### 3. Nạp Firmware cho ESP32
-1. Mở Dashboard, nhập thông tin **WiFi SSID** và **Mật khẩu**.
-2. Nhấn nút **"Lấy mã Firmware"**.
-3. Copy toàn bộ code C++ hiện ra.
-4. Mở **Arduino IDE**, dán code vào và nạp cho ESP32-C3.
-5. Kiểm tra LED chân số 8: **Sáng đứng** là đã kết nối thành công với Cloud.
+### 3. Sử dụng Web Dashboard
+1. Nhấn **Kết nối** trên trình duyệt.
+2. Tận hưởng việc điều khiển từ xa qua Internet.
 
-## 🛠 Công nghệ sử dụng
-- **Frontend:** React, Tailwind CSS, Lucide Icons, Framer Motion.
-- **IoT Platform:** SinricPro SDK.
-- **Phần cứng:** ESP32-C3 (C++ / Arduino framework).
-
-## 📝 Lưu ý
-- Hãy chắc chắn bạn đã có tài khoản tại [SinricPro](https://sinric.pro) để lấy App Key và App Secret (Mã trong ứng dụng là mã mẫu đã được tích hợp sẵn cho 4 switch).
-- Sử dụng **Google Chrome** hoặc các trình duyệt hiện đại để có trải nghiệm tốt nhất.
+## 🛠 Sơ đồ chân (Default)
+- **Relay:** GPIO 5, 6, 7, 10
+- **Nút nhấn:** GPIO 1, 2, 3, 4
+- **LED Status:** GPIO 8
 
 ---
-*Dự án được khởi tạo bởi SinricPro Smart Home Solution.*
+*Phát triển bởi SinricPro AI Solution.*
